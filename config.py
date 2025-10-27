@@ -64,9 +64,7 @@ MODEL_DIR = 'models/ContrastiveModel_ResNet.pth'
 MODEL_PLOT_DIR = 'models/ContrastiveModel_ResNet_730.pth'
 
 
-# ===================================================================
 # NEW: Training Hyperparameters (Single Source of Truth)
-# ===================================================================
 
 # Initial temperature (T) for the loss function
 # T=1.0 is a good starting point. T=0.1 is very "strict".
