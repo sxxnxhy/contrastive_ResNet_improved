@@ -1,18 +1,3 @@
-"""
-Cross-Modal Contrastive Learning Training Script
-
-(REFACTORED)
-핵심 전략:
-1. [RENAMED] Supervised Contrastive Loss:
-   - Positive: 같은 클래스 (Raman-Raman, GC-GC, Raman-GC)
-   - Negative: 다른 클래스
-2. [REFACTORED] Learnable Temperature:
-   - logit_scale (temperature)가 loss function의 nn.Parameter가 됨
-   - Optimizer가 이 파라미터를 학습
-   - 모든 값 (initial, min, max)은 config.py에서 제어
-3. [REMOVED] 'accuracy' metric (pos > neg)이 삭제됨
-4. Class-balanced Batching: (No change)
-"""
 
 import torch
 import torch.nn as nn
@@ -28,9 +13,6 @@ from model import CrossModalContrastiveModel
 from dataset import prepare_dataloader
 
 
-# ===================================================================
-# REFACTORED & RENAMED LOSS CLASS
-# ===================================================================
 class SupervisedContrastiveLoss(nn.Module):
     """
     Supervised Contrastive Loss (InfoNCE/NT-Xent)
