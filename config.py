@@ -61,11 +61,10 @@ MAX_WORKERS = 16  # For preprocessing
 NUM_WORKERS = 16  # DataLoader workers 
 
 MODEL_DIR = 'models/ContrastiveModel_ResNet.pth'
-MODEL_PLOT_DIR = 'models/ContrastiveModel_ResNet_730.pth'
+# MODEL_PLOT_DIR = 'models/ContrastiveModel_ResNet_730.pth'
 
 
-# Training Hyperparameters (Single Source of Truth)
-
+# Contrastive learning parameters
 # Initial temperature (T) for the loss function
 INITIAL_TEMPERATURE = 0.5
 
