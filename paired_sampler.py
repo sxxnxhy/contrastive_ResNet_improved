@@ -1,11 +1,7 @@
-"""
-Cross-Modal Paired Sampler for Contrastive Learning
 
-이 샘플러는 각 배치에서:
-1. 같은 클래스의 Raman과 GC 데이터를 균등하게 샘플링
-2. Positive/Negative 비율을 일정하게 유지
-3. 각 배치가 contrastive learning에 최적화되도록 구성
-"""
+# 1. 같은 클래스의 Raman과 GC 데이터를 균등하게 샘플링
+# 2. Positive/Negative 비율을 일정하게 유지
+# 3. 각 배치가 contrastive learning에 최적화되도록 구성
 
 import torch
 import numpy as np
@@ -15,19 +11,17 @@ from collections import defaultdict
 
 
 class CrossModalPairedSampler(Sampler):
-    """
-    Cross-modal contrastive learning을 위한 balanced batch sampler.
+
+    # Strategy:
+    # - 각 배치에 K개의 클래스 포함
+    # - 각 클래스당 N개의 Raman + N개의 GC 샘플 포함
+    # - 결과: 배치 크기 = K * N * 2 (클래스 수 * 샘플 수 * 모달리티 수)
     
-    Strategy:
-    - 각 배치에 K개의 클래스 포함
-    - 각 클래스당 N개의 Raman + N개의 GC 샘플 포함
-    - 결과: 배치 크기 = K * N * 2 (클래스 수 * 샘플 수 * 모달리티 수)
-    
-    Example:
-        K=2 클래스, N=16 샘플/클래스/모달리티
-        → 배치 크기 = 2 * 16 * 2 = 64
-        → 각 배치에 32개 positive pairs (같은 클래스 내 cross-modal)
-    """
+    # Example:
+    #     K=2 클래스, N=16 샘플/클래스/모달리티
+    #     → 배치 크기 = 2 * 16 * 2 = 64
+    #     → 각 배치에 32개 positive pairs (같은 클래스 내 cross-modal)
+
     
     def __init__(self, 
                  dataset,
@@ -35,14 +29,7 @@ class CrossModalPairedSampler(Sampler):
                  classes_per_batch: int = 2,
                  shuffle: bool = True,
                  seed: int = 42):
-        """
-        Args:
-            dataset: Dataset with class_labels and modalities attributes
-            samples_per_class_per_modality: 각 클래스당 각 모달리티에서 뽑을 샘플 수
-            classes_per_batch: 각 배치에 포함할 클래스 수
-            shuffle: 에폭마다 섞을지 여부
-            seed: Random seed
-        """
+
         self.dataset = dataset
         self.samples_per_class = samples_per_class_per_modality
         self.classes_per_batch = classes_per_batch
@@ -171,9 +158,7 @@ class CrossModalPairedSampler(Sampler):
         self.epoch += 1
     
     def __len__(self) -> int:
-        """총 배치 수"""
         return self.num_batches
     
     def set_epoch(self, epoch: int):
-        """에폭 설정 (DistributedSampler 스타일)"""
         self.epoch = epoch

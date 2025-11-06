@@ -10,39 +10,29 @@ import config
 
 
 def load_spectrum(filepath: str, modality: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
-    """Load x and y data from file. Returns (x, y) tuple."""
-    try:
-        if modality == 'raman':
-            # Load both x and y columns
-            data = np.loadtxt(filepath, delimiter=',', dtype=np.float32)
-            if data.ndim == 1:
-                # Only y provided, create dummy x
-                y = data
-                x = np.arange(len(y), dtype=np.float32)
-            else:
-                x = data[:, 0]
-                y = data[:, 1]
-        else:  # gc
-            # Skip comment lines and load x (column 1) and y (column 2)
-            data = np.loadtxt(filepath, delimiter=',', dtype=np.float32, comments='#')
-            if data.ndim == 1:
-                y = data
-                x = np.arange(len(y), dtype=np.float32)
-            else:
-                x = data[:, 1]  # Time column
-                y = data[:, 2]  # Intensity column
-        return x, y
-    except:
-        return None
+    if modality == 'raman':
+        data = np.loadtxt(filepath, delimiter=',', dtype=np.float32)
+        if data.ndim == 1:
+            # Only y provided, create dummy x
+            y = data
+            x = np.arange(len(y), dtype=np.float32)
+        else:
+            x = data[:, 0]
+            y = data[:, 1]
+    else:  # gc
+        data = np.loadtxt(filepath, delimiter=',', dtype=np.float32, comments='#')
+        if data.ndim == 1:
+            y = data
+            x = np.arange(len(y), dtype=np.float32)
+        else:
+            x = data[:, 1]
+            y = data[:, 2]
+    return x, y
 
 def preprocess_spectrum(x: np.ndarray, y: np.ndarray, modality: str) -> np.ndarray:
-    """
-    Preprocess spectrum - both modalities interpolated to COMMON_LENGTH (4096):
-    - Raman: Map to common x-range (300.1-3399.4), zero-pad missing regions, interpolate to 4096
-    - GC: Interpolate from 5347 to 4096 (downsample slightly)
-    """
+
     if modality == 'raman':
-        # Create common x-axis for Raman (300.1 to 3399.4 cm^-1)
+        # Create common x-axis for Raman (300.1 to 3399.4)
         common_x = np.linspace(config.RAMAN_X_MIN, config.RAMAN_X_MAX, config.COMMON_LENGTH)
         
         # Interpolate: areas without data will be 0 (left=0, right=0 for extrapolation)

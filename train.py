@@ -14,21 +14,11 @@ from dataset import prepare_dataloader
 
 
 class SupervisedContrastiveLoss(nn.Module):
-    """
-    Supervised Contrastive Loss (InfoNCE/NT-Xent)
-    
-    (REFACTORED)
-    - Temperature (logit_scale) logic is now self-contained here.
-    - Reads hyperparameters from config.py via the train() function.
-    - [REMOVED] 'accuracy' metric
-    """
-    
     def __init__(self, initial_temperature: float, min_temp: float, max_temp: float, 
                  label_smoothing: float):
         super().__init__()
         self.label_smoothing = label_smoothing  # ε for label smoothing
         
-        # --- [NEW] Temperature logic moved here ---
         # Store min/max in log-space for efficient clamping
         self.min_temp_log = np.log(min_temp)
         self.max_temp_log = np.log(max_temp)
@@ -38,10 +28,8 @@ class SupervisedContrastiveLoss(nn.Module):
         self.logit_scale = nn.Parameter(
             torch.ones([]) * np.log(initial_temperature)
         )
-        # --- [END NEW] ---
         
     def get_temperature(self) -> float:
-        """Helper to get current, clamped temperature"""
         # Clamp logit_scale
         logit_scale_clamped = torch.clamp(
             self.logit_scale, self.min_temp_log, self.max_temp_log
@@ -49,19 +37,11 @@ class SupervisedContrastiveLoss(nn.Module):
         # T = exp(log(T))
         return logit_scale_clamped.exp().item()
         
+        
+        
     def forward(self, embeddings: torch.Tensor, class_labels: torch.Tensor, 
                 modalities: torch.Tensor) -> dict:
-        """
-        [REFACTORED: `logit_scale` argument removed]
-        
-        Args:
-            embeddings: (B, D) L2-normalized embeddings
-            class_labels: (B, num_classes) one-hot class labels
-            modalities: (B,) modality indicators (0=Raman, 1=GC) - (No longer used)
-        
-        Returns:
-            dict with 'loss', 'pos_sim', 'neg_sim'
-        """
+
         batch_size = embeddings.size(0)
         device = embeddings.device
         
@@ -71,17 +51,15 @@ class SupervisedContrastiveLoss(nn.Module):
         # Compute similarity matrix (cosine similarity, range [-1, 1])
         sim_matrix = embeddings @ embeddings.T  # (B, B)
         
-        # --- [REFACTORED] Get temperature from self ---
         logit_scale_clamped = torch.clamp(
             self.logit_scale, self.min_temp_log, self.max_temp_log
         )
         temperature = logit_scale_clamped.exp()
-        # --- [END REFACTORED] ---
         
         # Apply temperature scaling
         logits = sim_matrix / temperature  # (B, B)
         
-        # --- Masks for Supervised Contrastive Loss ---
+        # Masks for Supervised Contrastive Loss
         class_match = class_indices.unsqueeze(0) == class_indices.unsqueeze(1)  # (B, B)
         self_mask = torch.eye(batch_size, dtype=torch.bool, device=device)
         
@@ -90,7 +68,6 @@ class SupervisedContrastiveLoss(nn.Module):
         
         # Negative: different class (self-comparison is already false)
         negative_mask = ~class_match
-        # --- [END MASK] ---
         
         
         # Check if we have valid pairs
@@ -152,12 +129,10 @@ class SupervisedContrastiveLoss(nn.Module):
             else:
                 neg_sim = 0.0
             
-            # --- [REMOVED] Accuracy metric ---
             num_pairs = positive_mask.sum().item()
         
         return {
             'loss': loss,
-            # 'acc' removed
             'pos_sim': pos_sim,
             'neg_sim': neg_sim,
             'num_pairs': int(num_pairs)
@@ -167,9 +142,8 @@ class SupervisedContrastiveLoss(nn.Module):
 def train_epoch(model: nn.Module, train_loader: DataLoader, 
                 criterion: SupervisedContrastiveLoss, optimizer: torch.optim.Optimizer,
                 device: torch.device, epoch: int) -> dict:
-    """한 에폭 학습"""
     model.train()
-    criterion.train() # Set criterion to train mode (for logit_scale)
+    criterion.train()
     
     total_loss = 0.0
     total_pos_sim = 0.0
@@ -189,7 +163,6 @@ def train_epoch(model: nn.Module, train_loader: DataLoader,
         embeddings = model(spectra, modalities)
         
         # Compute loss
-        # [REFACTORED: logit_scale no longer passed]
         loss_dict = criterion(
             embeddings, 
             class_labels, 
@@ -197,13 +170,10 @@ def train_epoch(model: nn.Module, train_loader: DataLoader,
         )
         
         loss = loss_dict['loss']
-        
-        # Backward pass
         optimizer.zero_grad()
         loss.backward()
         
         # Gradient clipping (stability)
-        # [REFACTORED: Value from config]
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.GRADIENT_CLIP_NORM)
         torch.nn.utils.clip_grad_norm_(criterion.parameters(), max_norm=config.GRADIENT_CLIP_NORM)
         
@@ -216,7 +186,6 @@ def train_epoch(model: nn.Module, train_loader: DataLoader,
         num_batches += 1
         
         # Update progress bar
-        # [REFACTORED: Removed 'acc', changed temp source]
         pbar.set_postfix({
             'loss': f'{loss.item():.4f}',
             'pos': f'{loss_dict["pos_sim"]:.3f}',
@@ -227,7 +196,6 @@ def train_epoch(model: nn.Module, train_loader: DataLoader,
     
     return {
         'loss': total_loss / num_batches,
-        # 'acc' removed
         'pos_sim': total_pos_sim / num_batches,
         'neg_sim': total_neg_sim / num_batches
     }
@@ -236,9 +204,8 @@ def train_epoch(model: nn.Module, train_loader: DataLoader,
 @torch.no_grad()
 def validate(model: nn.Module, val_loader: DataLoader, 
              criterion: SupervisedContrastiveLoss, device: torch.device) -> dict:
-    """검증"""
     model.eval()
-    criterion.eval() # Set criterion to eval mode
+    criterion.eval() 
     
     total_loss = 0.0
     total_pos_sim = 0.0
@@ -254,7 +221,6 @@ def validate(model: nn.Module, val_loader: DataLoader,
         
         embeddings = model(spectra, modalities)
         
-        # [REFACTORED: logit_scale no longer passed]
         loss_dict = criterion(
             embeddings, 
             class_labels, 
@@ -268,14 +234,12 @@ def validate(model: nn.Module, val_loader: DataLoader,
     
     return {
         'loss': total_loss / num_batches,
-        # 'acc' removed
         'pos_sim': total_pos_sim / num_batches,
         'neg_sim': total_neg_sim / num_batches
     }
 
 
 def train():
-    """메인 학습 함수"""
     print("="*80)
     print("Cross-Modal Contrastive Learning for Raman-GC Spectroscopy")
     print("="*80)
@@ -321,7 +285,6 @@ def train():
     
     
     # Loss with regularization
-    # [REFACTORED: Use new class and pull from config]
     criterion = SupervisedContrastiveLoss(
         initial_temperature=config.INITIAL_TEMPERATURE,
         min_temp=config.MIN_TEMP,
@@ -334,7 +297,6 @@ def train():
     print(f"Trainable parameters (criterion): 1 (logit_scale)")
     
     # Optimizer
-    # [REFACTORED: Add criterion parameters to optimizer]
     optimizer = torch.optim.AdamW(
         list(model.parameters()) + list(criterion.parameters()),
         lr=config.LEARNING_RATE,
@@ -363,7 +325,6 @@ def train():
         # Train
         train_metrics = train_epoch(model, train_loader, criterion, optimizer, device, epoch)
         
-        # [REFACTORED: Removed 'Acc']
         print(f"Train - Loss: {train_metrics['loss']:.4f}, "
               f"Pos Sim: {train_metrics['pos_sim']:.3f}, "
               f"Neg Sim: {train_metrics['neg_sim']:.3f}")
@@ -371,12 +332,10 @@ def train():
         # Validate
         val_metrics = validate(model, val_loader, criterion, device)
         
-        # [REFACTORED: Removed 'Acc']
         print(f"Val   - Loss: {val_metrics['loss']:.4f}, "
               f"Pos Sim: {val_metrics['pos_sim']:.3f}, "
               f"Neg Sim: {val_metrics['neg_sim']:.3f}")
         
-        # [REFACTORED: Temp source changed]
         print(f"Temperature: {criterion.get_temperature():.4f}")
         print(f"Learning rate: {optimizer.param_groups[0]['lr']:.6f}")
         
